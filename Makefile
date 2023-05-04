@@ -1,14 +1,14 @@
 CXX=g++
 CXXFLAGS=-Wall
-OBJ=server.o subscriber.o
+OBJ=server.o subscriber.o Socket.o TCPServer.o
 BIN=server subscriber
 
-build: server subscriber
+all: server subscriber
 
-server: server.o
+server: server.o Socket.o TCPServer.o
 	$(CXX) -o $@ $^
 
-subscriber: subscriber.o
+subscriber: subscriber.o Socket.o TCPServer.o
 	$(CXX) -o $@ $^
 
 %.o: %.cpp
