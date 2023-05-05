@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <cstdint>
+#include <sstream>
 #include <arpa/inet.h>
 #include "Socket.hpp"
 #include "protocol.hpp"
@@ -11,10 +12,12 @@ int main(int argc, char **argv)
 {
     setvbuf(stdout, nullptr, _IONBF, BUFSIZ);
 
+    string id;
+    string ip;
     uint16_t port;
-    int rc = sscanf(argv[3], "%hu", &port);
-    if (rc < 0)
-        throw std::system_error(errno, std::generic_category());
+    stringstream (argv[1]) >> id;
+    stringstream (argv[2]) >> ip;
+    stringstream (argv[3]) >> port;
 
     auto sock = Socket(AF_INET, SOCK_STREAM);
 
@@ -24,7 +27,7 @@ int main(int argc, char **argv)
     memset(&serv_addr, 0, socket_len);
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(port);
-    rc = inet_pton(AF_INET, argv[2], &serv_addr.sin_addr.s_addr);
+    int rc = inet_pton(AF_INET, ip.data(), &serv_addr.sin_addr.s_addr);
     if (rc < 0)
         throw std::system_error(errno, std::generic_category());
 
@@ -33,7 +36,7 @@ int main(int argc, char **argv)
     char buf[MAX_MSG_DATA_LEN];
     size_t len = sizeof(buf);
 
-    struct msg_hdr msg{TYPE_CONN, sizeof(struct msg_hdr) + strlen(argv[1]) + 1};
+    struct msg_hdr msg{TYPE_CONN, sizeof(struct msg_hdr) + id.size() + 1};
     memcpy(buf, &msg, sizeof(struct msg_hdr));
     memcpy(buf + sizeof(struct msg_hdr), argv[1], strlen(argv[1]) + 1);
 

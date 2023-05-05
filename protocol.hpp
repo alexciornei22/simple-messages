@@ -11,7 +11,7 @@
 #define MAX_MSG_DATA_LEN 1600
 #define ID_MAX_LEN 11
 
-struct msg_hdr {
+struct __attribute__((__packed__)) msg_hdr {
     uint8_t type;
     uint16_t msg_len;
 };

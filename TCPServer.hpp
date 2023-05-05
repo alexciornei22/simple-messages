@@ -11,9 +11,11 @@
 class TCPServer {
 public:
     explicit TCPServer(uint16_t port);
+    ~TCPServer();
     void run();
 
 private:
+    bool active = false;
     Socket* server_socket;
     struct sockaddr_in serv_addr{};
     socklen_t socket_len{};

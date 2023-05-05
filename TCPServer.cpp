@@ -27,7 +27,8 @@ void TCPServer::run() {
     poll_fds.push_back(pollfd{server_socket->getFd(), POLLIN, 0});
     poll_fds.push_back(pollfd{STDIN_FILENO, POLLIN, 0});
 
-    while (true) {
+    active = true;
+    while (active) {
         int rc = poll(poll_fds.data(), poll_fds.size(), -1);
         if (rc < 0)
             throw std::system_error(errno, std::generic_category(), "poll");
@@ -76,8 +77,9 @@ void TCPServer::handleConsoleInput() {
 
     getline(std::cin, command);
 
-    if (command == "exit")
-        exit(EXIT_SUCCESS);
+    if (command == "exit") {
+        active = false;
+    }
 }
 
 void TCPServer::handleIncomingData(int fd) {
@@ -96,4 +98,9 @@ void TCPServer::handleIncomingData(int fd) {
 
         std::cout << "New client " << id << " connected from IP:PORT." << std::endl;
     }
+}
+
+TCPServer::~TCPServer() {
+    poll_fds.clear();
+    delete server_socket;
 }
