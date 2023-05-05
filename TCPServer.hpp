@@ -25,6 +25,7 @@ private:
     void handleNewConnection();
     void handleConsoleInput();
     void handleIncomingData(int fd);
+    void closeConnection(int fd);
 };
 
 #endif //HOMEWORK2_PUBLIC_TCPSERVER_HPP

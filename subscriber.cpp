@@ -34,13 +34,12 @@ int main(int argc, char **argv)
     sock.connect((struct sockaddr *)&serv_addr, socket_len);
 
     char buf[MAX_MSG_DATA_LEN];
-    size_t len = sizeof(buf);
 
-    struct msg_hdr msg{TYPE_CONN, sizeof(struct msg_hdr) + id.size() + 1};
+    struct msg_hdr msg{TYPE_CONN, htons(sizeof(struct msg_hdr) + id.size() + 1)};
     memcpy(buf, &msg, sizeof(struct msg_hdr));
-    memcpy(buf + sizeof(struct msg_hdr), argv[1], strlen(argv[1]) + 1);
+    memcpy(buf + sizeof(struct msg_hdr), id.data(), id.size() + 1);
 
-    rc = Socket::sendAll(sock.getFd(), buf, msg.msg_len);
+    rc = Socket::sendAll(sock.getFd(), buf, ntohs(msg.msg_len));
     if (rc < 0)
         throw std::system_error(errno, std::generic_category());
 

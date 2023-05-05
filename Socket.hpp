@@ -12,9 +12,11 @@ public:
     void bind(const struct sockaddr* addr, socklen_t len) const;
     void listen(int backlog) const;
     int accept(struct sockaddr *addr, socklen_t *len) const;
+    void connect(struct sockaddr *addr, socklen_t len) const;
+
+    static int recvNBytes(int fd, char *buf, size_t n);
     static int recvMessage(int fd, char *buf, size_t *len);
     static int sendAll(int fd, char *buf, size_t len);
-    void connect(struct sockaddr *addr, socklen_t len);
     [[nodiscard]] int getFd() const;
 
 protected:

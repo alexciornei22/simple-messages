@@ -16,7 +16,7 @@ int Socket::getFd() const {
 }
 
 Socket::Socket(int domain, int type) {
-    fd = socket(AF_INET, SOCK_STREAM, 0);
+    fd = socket(domain, type, 0);
     if (fd < 0)
         throw std::system_error(errno, std::generic_category());
 }
@@ -53,38 +53,21 @@ int Socket::accept(struct sockaddr *addr, socklen_t *len) const {
 }
 
 int Socket::recvMessage(int fd, char *buf, size_t *len) {
-    int bytes_remaining = sizeof(struct msg_hdr);
-    int bytes_received = 0;
-    char *aux = buf;
+    int rc = recvNBytes(fd, buf, sizeof(struct msg_hdr));
+    if (rc == 0) // connection ended
+        return 0;
 
-    while (bytes_remaining) {
-        int rc = recv(fd, aux, bytes_remaining, 0);
-        if (rc < 0)
-            throw std::system_error(errno, std::generic_category(), "recv sock");
+    auto *hdr = (struct msg_hdr*) buf;
+    hdr->msg_len = ntohs(hdr->msg_len);
+    size_t data_bytes = hdr->msg_len - sizeof(struct msg_hdr);
+    std::cout << "data len " << data_bytes << std::endl;
 
-        bytes_remaining -= rc;
-        aux += rc;
-        bytes_received += rc;
-    }
+    rc = recvNBytes(fd, buf + sizeof(struct msg_hdr), data_bytes);
+    if (rc == 0) // connection ended
+        return 0;
 
-    struct msg_hdr *hdr = (struct msg_hdr*) buf;
-    bytes_remaining = hdr->msg_len - sizeof(struct msg_hdr);
-    std::cout << "hdr len " << hdr->msg_len << std::endl;
-
-    while (bytes_remaining > 0) {
-        int rc = recv(fd, aux, bytes_remaining, 0);
-        if (rc < 0)
-            throw std::system_error(errno, std::generic_category(), "recv sock");
-
-        bytes_remaining -= rc;
-        aux += rc;
-        bytes_received += rc;
-        std::cout << "rc " << bytes_remaining << " " << rc << std::endl;
-    }
-
-    *len = bytes_received;
-    std::cout << bytes_received << std::endl;
-    return 0;
+    *len = hdr->msg_len;
+    return hdr->msg_len;
 }
 
 int Socket::sendAll(int fd, char *buf, size_t len) {
@@ -101,11 +84,31 @@ int Socket::sendAll(int fd, char *buf, size_t len) {
         std::cout << "rc " << bytes_remaining << std::endl;
     }
 
-    return send(fd, aux, bytes_remaining, 0);
+    return 0;
 }
 
-void Socket::connect(struct sockaddr *addr, socklen_t len) {
+void Socket::connect(struct sockaddr *addr, socklen_t len) const {
     int rc = ::connect(fd, addr, len);
     if (rc < 0)
         throw std::system_error(errno, std::generic_category());
+}
+
+int Socket::recvNBytes(int fd, char *buf, size_t n) {
+    int bytes_remaining = n;
+    int bytes_received = 0;
+    char *aux = buf;
+
+    while (bytes_remaining) {
+        int rc = recv(fd, aux, bytes_remaining, 0);
+        if (rc < 0)
+            throw std::system_error(errno, std::generic_category(), "recv sock");
+
+        if (rc == 0) // connection ended
+            return 0;
+
+        bytes_remaining -= rc;
+        bytes_received += rc;
+        aux += rc;
+    }
+    return bytes_received;
 }
