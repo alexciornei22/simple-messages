@@ -13,6 +13,10 @@ using namespace std;
 
 int main(int argc, char **argv)
 {
+    if (argc < 2) {
+        cerr << "Not enough arguments" << endl;
+        return 1;
+    }
     setvbuf(stdout, nullptr, _IONBF, BUFSIZ);
 
     uint16_t port;

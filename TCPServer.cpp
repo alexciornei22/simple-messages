@@ -48,7 +48,7 @@ void TCPServer::run() {
     while (active) {
         int rc = poll(poll_fds.data(), poll_fds.size(), -1);
         if (rc < 0)
-            throw std::system_error(errno, std::generic_category(), "poll");
+            throw std::system_error(errno, std::generic_category(), "poll()");
 
         handlePollFds();
     }
@@ -150,15 +150,19 @@ void TCPServer::closeConnection(int fd) {
     std::cout << "Connection ended" << std::endl;
 }
 
-udp_msg* TCPServer::recvTopicData(int fd) {
+void TCPServer::recvTopicData(int fd) {
     sockaddr_in client_addr = sockaddr_in();
     socklen_t client_len = sizeof(client_addr);
     char buf[MAX_MSG_LEN] = {0};
 
     ssize_t rc = recvfrom(fd, buf, MAX_MSG_LEN, 0, (struct sockaddr *)&client_addr, &client_len);
     if (rc < 0)
-        throw std::system_error(errno, std::generic_category(), "close()");
+        throw std::system_error(errno, std::generic_category(), "recvfrom()");
 
+    udp_msg *new_msg = getMessage(buf, client_addr);
+}
+
+udp_msg *TCPServer::getMessage(char *buf, sockaddr_in client_addr) {
     auto *msg = new udp_msg();
     msg->client_addr = client_addr.sin_addr.s_addr;
     msg->client_port = client_addr.sin_port;

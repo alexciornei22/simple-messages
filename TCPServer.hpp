@@ -27,7 +27,8 @@ private:
     void handlePollFds();
     void handleNewConnection();
     void handleConsoleInput();
-    udp_msg* recvTopicData(int fd);
+    void recvTopicData(int fd);
+    udp_msg *getMessage(char *buf, sockaddr_in client_addr);
     void handleIncomingData(int fd);
     void closeConnection(int fd);
 };

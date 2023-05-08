@@ -16,7 +16,7 @@ public:
 
     static int recvNBytes(int fd, char *buf, size_t n);
     static int recvMessage(int fd, char *buf, size_t *len);
-    static int sendAll(int fd, char *buf, size_t len);
+    static void sendBuffer(int fd, char *buf, size_t len);
     [[nodiscard]] int getFd() const;
 
 protected:
