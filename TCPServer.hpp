@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include "Socket.hpp"
+#include "protocol.hpp"
 
 class TCPServer {
 public:
@@ -17,13 +18,16 @@ public:
 private:
     bool active = false;
     Socket* server_socket;
-    struct sockaddr_in serv_addr{};
-    socklen_t socket_len{};
+    Socket* udp_socket;
+    sockaddr_in serv_addr = sockaddr_in();
+    sockaddr_in udp_addr = sockaddr_in();
     std::vector<pollfd> poll_fds;
     std::unordered_map<int, struct sockaddr_in> address_map;
+
     void handlePollFds();
     void handleNewConnection();
     void handleConsoleInput();
+    udp_msg* recvTopicData(int fd);
     void handleIncomingData(int fd);
     void closeConnection(int fd);
 };

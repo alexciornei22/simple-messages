@@ -22,19 +22,26 @@ TCPServer::TCPServer(uint16_t port) {
     server_socket->enableSockOpt(SOL_SOCKET, SO_REUSEADDR);
     server_socket->enableSockOpt(SOL_TCP, TCP_NODELAY);
 
-    socket_len = sizeof(struct sockaddr_in);
-    memset(&serv_addr, 0, socket_len);
+    udp_socket = new Socket(AF_INET, SOCK_DGRAM);
+    udp_socket->enableSockOpt(SOL_SOCKET, SO_REUSEADDR);
+
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_port = htons(port);
 
-    server_socket->bind((const struct sockaddr *)&serv_addr, socket_len);
+    udp_addr.sin_family = AF_INET;
+    udp_addr.sin_addr.s_addr = INADDR_ANY;
+    udp_addr.sin_port = htons(port);
+
+    server_socket->bind((const struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    udp_socket->bind((const struct sockaddr *)&udp_addr, sizeof(udp_addr));
 }
 
 void TCPServer::run() {
     server_socket->listen(10);
 
     poll_fds.push_back(pollfd{server_socket->getFd(), POLLIN, 0});
+    poll_fds.push_back(pollfd{udp_socket->getFd(), POLLIN, 0});
     poll_fds.push_back(pollfd{STDIN_FILENO, POLLIN, 0});
 
     active = true;
@@ -59,6 +66,11 @@ void TCPServer::handlePollFds() {
         if (pfd.revents & POLLIN) {
             if (pfd.fd == server_socket->getFd()) {
                 handleNewConnection();
+                continue;
+            }
+
+            if (pfd.fd == udp_socket->getFd()) {
+                recvTopicData(pfd.fd);
                 continue;
             }
 
@@ -97,7 +109,7 @@ void TCPServer::handleConsoleInput() {
 }
 
 void TCPServer::handleIncomingData(int fd) {
-    char buf[MAX_MSG_DATA_LEN];
+    char buf[MAX_MSG_LEN];
     size_t len;
 
     int ret = Socket::recvMessage(fd, buf, &len);
@@ -122,6 +134,7 @@ TCPServer::~TCPServer() {
     poll_fds.clear();
     address_map.clear();
     delete server_socket;
+    delete udp_socket;
 }
 
 void TCPServer::closeConnection(int fd) {
@@ -135,4 +148,27 @@ void TCPServer::closeConnection(int fd) {
         throw std::system_error(errno, std::generic_category(), "close()");
 
     std::cout << "Connection ended" << std::endl;
+}
+
+udp_msg* TCPServer::recvTopicData(int fd) {
+    sockaddr_in client_addr = sockaddr_in();
+    socklen_t client_len = sizeof(client_addr);
+    char buf[MAX_MSG_LEN] = {0};
+
+    ssize_t rc = recvfrom(fd, buf, MAX_MSG_LEN, 0, (struct sockaddr *)&client_addr, &client_len);
+    if (rc < 0)
+        throw std::system_error(errno, std::generic_category(), "close()");
+
+    auto *msg = new udp_msg();
+    msg->client_addr = client_addr.sin_addr.s_addr;
+    msg->client_port = client_addr.sin_port;
+
+    char *aux = buf;
+    snprintf(msg->topic, TOPIC_MAX_LEN, "%s", aux);
+    aux += TOPIC_MAX_LEN;
+    msg->type = (uint8_t) *aux;
+    aux++;
+    memcpy(msg->data, aux, DATA_MAX_LEN);
+
+    return msg;
 }

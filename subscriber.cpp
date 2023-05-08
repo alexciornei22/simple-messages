@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 
     sock.connect((struct sockaddr *)&serv_addr, socket_len);
 
-    char buf[MAX_MSG_DATA_LEN];
+    char buf[MAX_MSG_LEN];
 
     struct msg_hdr msg{TYPE_CONN, htons(sizeof(struct msg_hdr) + id.size() + 1)};
     memcpy(buf, &msg, sizeof(struct msg_hdr));
