@@ -34,6 +34,9 @@ struct sub_msg {
     uint8_t sf;
     char topic_name[TOPIC_MAX_LEN];
 };
+struct unsub_msg {
+    char topic_name[TOPIC_MAX_LEN];
+};
 
 struct udp_msg {
     in_addr_t client_addr{};

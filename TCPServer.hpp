@@ -80,7 +80,7 @@ private:
 
     void handleConnectionMessage(int fd, char *data);
     void handleSubscribeMessage(int fd, const char *data);
-
+    void handleUnSubscribeMessage(int fd, const char *data);
 };
 
 #endif //HOMEWORK2_PUBLIC_TCPSERVER_HPP

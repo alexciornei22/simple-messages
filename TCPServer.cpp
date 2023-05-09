@@ -125,6 +125,9 @@ void TCPServer::recvTCPClientData(int fd) {
         case TYPE_SUB:
             handleSubscribeMessage(fd, data);
             break;
+        case TYPE_UNSUB:
+            handleUnSubscribeMessage(fd, data);
+            break;
     }
 
 }
@@ -266,6 +269,27 @@ void TCPServer::handleSubscribeMessage(int fd, const char *data) {
         topic->attach(&(*client), msg->sf);
     }
 }
+
+void TCPServer::handleUnSubscribeMessage(int fd, const char *data) {
+    auto *msg = (unsub_msg *) data;
+//    std::cout << msg->topic_name << "\n";
+//    std::cout << +msg->sf << " " << msg->topic_name << "\n";
+
+    // find client by FD
+    auto client = std::find_if(clients.begin(), clients.end(), [&](const Client &item) {
+        return item.getFd() == fd;
+    });
+
+    // find topic by name
+    auto topic = std::find_if(topics.begin(), topics.end(), [&](const Topic &item) {
+        return item.getName() == msg->topic_name;
+    });
+
+    if (topic != topics.end()) {
+        topic->detach(&(*client));
+    }
+}
+
 
 void Client::setAddr(const sockaddr_in &client_addr) {
     Client::addr = client_addr;

@@ -95,6 +95,7 @@ void TCPClient::getConsoleCommands() {
         std::string topic;
 
         s >> topic;
+        sendUnSubscribeMessage(topic);
         return;
     }
 }
@@ -190,4 +191,24 @@ void TCPClient::recvData() {
         std::cout << data << std::endl;
         return;
     }
+}
+
+void TCPClient::sendUnSubscribeMessage(std::string topic) {
+    char buf[MAX_MSG_LEN];
+    uint16_t buf_len = 0;
+
+    auto data = unsub_msg();
+    memcpy(data.topic_name, topic.c_str(), TOPIC_MAX_LEN);
+
+    buf_len += sizeof(msg_hdr);
+    buf_len += topic.size() + 1;
+
+    msg_hdr msg{TYPE_UNSUB, htons(buf_len)};
+
+    memcpy(buf, &msg, sizeof(msg_hdr));
+    memcpy(buf + sizeof(msg_hdr), &data, sizeof(data));
+
+    Socket::sendBuffer(server_socket->getFd(), buf, buf_len);
+
+    std::cout << "Unsubscribed to topic." << std::endl;
 }

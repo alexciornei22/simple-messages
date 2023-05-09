@@ -19,6 +19,7 @@ private:
 
     void getConsoleCommands();
     void sendSubscribeMessage(std::string topic, bool sf);
+    void sendUnSubscribeMessage(std::string topic);
     void recvData();
 };
 
