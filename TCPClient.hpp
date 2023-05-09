@@ -18,6 +18,8 @@ private:
     std::vector<pollfd> poll_fds;
 
     void getConsoleCommands();
+    void sendSubscribeMessage(std::string topic, bool sf);
+    void recvData();
 };
 
 

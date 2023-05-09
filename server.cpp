@@ -8,6 +8,7 @@
 #include <vector>
 #include <sstream>
 #include "TCPServer.hpp"
+#include "protocol.hpp"
 
 using namespace std;
 

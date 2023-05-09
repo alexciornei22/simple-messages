@@ -3,19 +3,15 @@
 
 #include <cstring>
 #include <iostream>
+#include <sstream>
 #include <algorithm>
 #include <exception>
 #include <system_error>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
-
-class connection_ended : public std::exception {
-    [[nodiscard]] const char * what() const noexcept override {
-        return "Connection Ended";
-    }
-};
 
 TCPServer::TCPServer(uint16_t port) {
     server_socket = new Socket(AF_INET, SOCK_STREAM);
@@ -51,6 +47,9 @@ void TCPServer::run() {
             throw std::system_error(errno, std::generic_category(), "poll()");
 
         handlePollFds();
+
+        std::cout << topics.size() << " " << clients.size() << std::endl;
+        std::cout << "--------------------\n";
     }
 }
 
@@ -70,7 +69,7 @@ void TCPServer::handlePollFds() {
             }
 
             if (pfd.fd == udp_socket->getFd()) {
-                recvTopicData(pfd.fd);
+                recvUDPTopicData(pfd.fd);
                 continue;
             }
 
@@ -80,7 +79,7 @@ void TCPServer::handlePollFds() {
             }
 
             try {
-                handleIncomingData(pfd.fd);
+                recvTCPClientData(pfd.fd);
             } catch (connection_ended &e) {
                 closeConnection(pfd.fd);
             }
@@ -89,13 +88,12 @@ void TCPServer::handlePollFds() {
 }
 
 void TCPServer::handleNewConnection() {
-    struct sockaddr_in client_addr{};
+    sockaddr_in client_addr = sockaddr_in();
     socklen_t client_len = sizeof(client_addr);
 
     int new_sockfd = server_socket->accept((struct sockaddr *)&client_addr, &client_len);
 
     poll_fds.push_back(pollfd{new_sockfd, POLLIN, 0});
-    address_map.insert({new_sockfd, client_addr});
 }
 
 void TCPServer::handleConsoleInput() {
@@ -108,7 +106,7 @@ void TCPServer::handleConsoleInput() {
     }
 }
 
-void TCPServer::handleIncomingData(int fd) {
+void TCPServer::recvTCPClientData(int fd) {
     char buf[MAX_MSG_LEN];
     size_t len;
 
@@ -117,22 +115,24 @@ void TCPServer::handleIncomingData(int fd) {
         throw connection_ended();
     }
 
-    auto *msg = (struct msg_hdr*) buf;
+    auto *msg = (msg_hdr*) buf;
+    char *data = buf + sizeof(msg_hdr);
 
-    if (msg->type == TYPE_CONN) {
-        char id[ID_MAX_LEN];
-        struct sockaddr_in client_addr = address_map.at(fd);
-        memcpy(id, buf + sizeof(struct msg_hdr), ID_MAX_LEN);
-
-        std::cout << "New client " << id << " connected from " <<
-        inet_ntoa(client_addr.sin_addr) << ":" << client_addr.sin_port <<
-        std::endl;
+    switch (msg->type) {
+        case TYPE_CONN:
+            handleConnectionMessage(fd, data);
+            break;
+        case TYPE_SUB:
+            handleSubscribeMessage(fd, data);
+            break;
     }
+
 }
 
 TCPServer::~TCPServer() {
     poll_fds.clear();
-    address_map.clear();
+    topics.clear();
+    clients.clear();
     delete server_socket;
     delete udp_socket;
 }
@@ -142,37 +142,234 @@ void TCPServer::closeConnection(int fd) {
         return item.fd == fd;
     }),poll_fds.end());
 
-    address_map.erase(fd);
     int rc = close(fd);
     if (rc < 0)
         throw std::system_error(errno, std::generic_category(), "close()");
 
-    std::cout << "Connection ended" << std::endl;
+    // find client by FD
+    auto client = std::find_if(clients.begin(), clients.end(), [&](const Client &item) {
+        return item.getFd() == fd;
+    });
+
+    if (client != clients.end()) {
+        client->disconnect();
+    }
 }
 
-void TCPServer::recvTopicData(int fd) {
+void TCPServer::recvUDPTopicData(int fd) {
     sockaddr_in client_addr = sockaddr_in();
     socklen_t client_len = sizeof(client_addr);
-    char buf[MAX_MSG_LEN] = {0};
+    char buf[MAX_MSG_LEN]{};
 
     ssize_t rc = recvfrom(fd, buf, MAX_MSG_LEN, 0, (struct sockaddr *)&client_addr, &client_len);
     if (rc < 0)
         throw std::system_error(errno, std::generic_category(), "recvfrom()");
 
-    udp_msg *new_msg = getMessage(buf, client_addr);
+    udp_msg new_msg = makeUDPMessage(buf, client_addr, rc);
+
+    // find topic by name
+    auto topic = std::find_if(topics.begin(), topics.end(), [&](const Topic &item) {
+        return item.getName() == new_msg.topic;
+    });
+
+    if (topic != topics.end()) {
+        topic->notifyClients(new_msg);
+    }
 }
 
-udp_msg *TCPServer::getMessage(char *buf, sockaddr_in client_addr) {
-    auto *msg = new udp_msg();
-    msg->client_addr = client_addr.sin_addr.s_addr;
-    msg->client_port = client_addr.sin_port;
+udp_msg TCPServer::makeUDPMessage(char *buf, sockaddr_in client_addr, int rc) {
+    auto msg = udp_msg();
+    msg.client_addr = htonl(client_addr.sin_addr.s_addr);
+    msg.client_port = htons(client_addr.sin_port);
+    msg.size = htons(sizeof(udp_msg) - sizeof(msg.data) - sizeof(msg.topic) - sizeof(msg.type) + rc);
+    std::cout << "make: " << rc << " " << sizeof(msg.data) << " " << sizeof(udp_msg) << "\n";
 
     char *aux = buf;
-    snprintf(msg->topic, TOPIC_MAX_LEN, "%s", aux);
+    snprintf(msg.topic, TOPIC_MAX_LEN, "%s", aux);
     aux += TOPIC_MAX_LEN;
-    msg->type = (uint8_t) *aux;
+    msg.type = (uint8_t) *aux;
     aux++;
-    memcpy(msg->data, aux, DATA_MAX_LEN);
+    memcpy(msg.data, aux, DATA_MAX_LEN);
 
     return msg;
+}
+
+void TCPServer::handleConnectionMessage(int fd, char *data) {
+    char id[ID_MAX_LEN];
+    memcpy(id, data, ID_MAX_LEN);
+
+    // find client by ID
+    auto client = std::find_if(clients.begin(), clients.end(), [&](const Client &item) {
+        return item.getId() == id;
+    });
+
+    sockaddr_in client_addr = sockaddr_in();
+    socklen_t client_len = sizeof(client_addr);
+    int rc = getpeername(fd, (sockaddr*)&client_addr, &client_len);
+    if (rc < 0)
+        throw std::system_error(errno, std::generic_category(), "getpeername()");
+
+    if (client == clients.end()) { // new client
+        Client new_client = Client();
+        new_client.setFd(fd);
+        new_client.setId(id);
+        new_client.setAddr(client_addr);
+        new_client.setConnected(true);
+
+        clients.push_back(new_client);
+
+        std::cout << "New client " << id << " connected from " <<
+                  inet_ntoa(client_addr.sin_addr) << ":" << client_addr.sin_port <<
+                  std::endl;
+    } else {
+        if (client->isConnected()) { // client already connected
+            std::cout << "Client " << client->getId() << " already connected" << std::endl;
+
+            closeConnection(fd);
+        } else { // old client reconnects
+            client->connect(fd, client_addr);
+
+            std::cout << "New client " << id << " connected from " <<
+                      inet_ntoa(client_addr.sin_addr) << ":" << client_addr.sin_port <<
+                      std::endl;
+        }
+    }
+}
+
+void TCPServer::handleSubscribeMessage(int fd, const char *data) {
+    auto *msg = (sub_msg *) data;
+
+    std::cout << +msg->sf << " " << msg->topic_name << "\n";
+
+    // find client by FD
+    auto client = std::find_if(clients.begin(), clients.end(), [&](const Client &item) {
+        return item.getFd() == fd;
+    });
+
+    // find topic by name
+    auto topic = std::find_if(topics.begin(), topics.end(), [&](const Topic &item) {
+        return item.getName() == msg->topic_name;
+    });
+
+    if (topic == topics.end()) {
+        auto new_topic = Topic();
+        new_topic.setName(msg->topic_name);
+        new_topic.attach(&(*client), msg->sf);
+
+        topics.push_back(new_topic);
+    } else {
+        topic->attach(&(*client), msg->sf);
+    }
+}
+
+void Client::setAddr(const sockaddr_in &client_addr) {
+    Client::addr = client_addr;
+}
+
+void Client::setConnected(bool value) {
+    Client::connected = value;
+}
+
+const std::queue<udp_msg> &Client::getMessageQueue() const {
+    return message_queue;
+}
+
+int Client::getFd() const {
+    return fd;
+}
+
+void Client::setFd(int fd) {
+    Client::fd = fd;
+}
+
+const std::string &Client::getId() const {
+    return id;
+}
+
+void Client::setId(const std::string &id) {
+    Client::id = id;
+}
+
+bool Client::isConnected() const {
+    return connected;
+}
+
+const sockaddr_in &Client::getAddr() const {
+    return addr;
+}
+
+void Client::disconnect() {
+    this->setConnected(false);
+
+    std::cout << "Client " << this->getId() << " disconnected." << std::endl;
+}
+
+void Client::connect(int fd, sockaddr_in addr) {
+    this->setFd(fd);
+    this->setAddr(addr);
+    this->setConnected(true);
+}
+
+void Client::update(udp_msg msg) {
+    char buf[MAX_MSG_LEN];
+    size_t buf_len = 0;
+
+    buf_len += sizeof(msg_hdr);
+    buf_len += ntohs(msg.size);
+
+    auto *hdr = (msg_hdr *)buf;
+    hdr->type = TYPE_TOPDAT;
+    hdr->msg_len = htons(buf_len);
+
+    std::cout << "update: " << buf_len << " " << ntohs(msg.size) << std::endl;
+    std::cout << msg.topic << " " << +msg.type << " " << msg.data << "\n";
+    memcpy(buf + sizeof(msg_hdr), &msg, ntohs(msg.size));
+
+    Socket::sendBuffer(fd, buf, buf_len);
+}
+
+void Topic::attach(Client *client, bool sf) {
+    auto found = std::find(sf_clients.begin(), sf_clients.end(), client);
+    if (found != sf_clients.end()) // check if client already in sf subs
+        return;
+
+    found = std::find(clients.begin(), clients.end(), client);
+    if (found != clients.end()) // check if client already in normal subs
+        return;
+
+    if (sf) {
+        sf_clients.push_back(client);
+    } else {
+        clients.push_back(client);
+    }
+    std::cout << name << ":" << sf_clients.size() + clients.size() << std::endl;
+}
+
+void Topic::detach(Client *client) {
+    sf_clients.remove(client);
+    clients.remove(client);
+}
+
+const std::string &Topic::getName() const {
+    return name;
+}
+
+void Topic::setName(const std::string &name) {
+    Topic::name = name;
+}
+
+const std::list<Client *> &Topic::getSfClients() const {
+    return sf_clients;
+}
+
+const std::list<Client *> &Topic::getClients() const {
+    return clients;
+}
+
+void Topic::notifyClients(udp_msg msg) {
+    for (auto client : clients) {
+        if (client->isConnected()) {
+            client->update(msg);
+        }
+    }
 }

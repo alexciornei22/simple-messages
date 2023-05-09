@@ -57,7 +57,7 @@ int Socket::recvMessage(int fd, char *buf, size_t *len) {
     if (rc == 0) // connection ended
         return 0;
 
-    auto *hdr = (struct msg_hdr*) buf;
+    auto hdr = (msg_hdr*) buf;
     hdr->msg_len = ntohs(hdr->msg_len);
     size_t data_bytes = hdr->msg_len - sizeof(msg_hdr);
     std::cout << "data len " << data_bytes << std::endl;

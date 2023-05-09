@@ -7,10 +7,10 @@
 /*
  * Types for the TCP messages
  */
-#define TYPE_CONN 0
-#define TYPE_SUB 1
-#define TYPE_UNSUB 2
-#define TYPE_TOPDAT 3
+#define TYPE_CONN 0 // connection ID message
+#define TYPE_SUB 1 // subscribe message
+#define TYPE_UNSUB 2 // unsubscribe message
+#define TYPE_TOPDAT 3 // topic data message
 
 /*
  * Types for UDP message topic data
@@ -22,20 +22,26 @@
 
 #define MAX_MSG_LEN 1600
 #define TOPIC_MAX_LEN 50
-#define DATA_MAX_LEN 1500
+#define DATA_MAX_LEN 1501
 #define ID_MAX_LEN 11
 
 struct __attribute__((__packed__)) msg_hdr {
-    uint8_t type:4, sf:4;
+    uint8_t type;
     uint16_t msg_len;
 };
 
+struct sub_msg {
+    uint8_t sf;
+    char topic_name[TOPIC_MAX_LEN];
+};
+
 struct udp_msg {
-    in_addr_t client_addr;
-    in_port_t client_port;
-    char topic[50];
-    uint8_t type;
-    char data[1500];
+    in_addr_t client_addr{};
+    in_port_t client_port{};
+    char topic[TOPIC_MAX_LEN]{};
+    uint8_t type{};
+    uint16_t size{};
+    char data[DATA_MAX_LEN]{};
 };
 
 #endif //HOMEWORK2_PUBLIC_PROTOCOL_HPP

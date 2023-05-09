@@ -3,6 +3,7 @@
 #define HOMEWORK2_PUBLIC_SOCKET_HPP
 
 #include <netinet/in.h>
+#include <exception>
 
 class Socket {
 public:
@@ -23,5 +24,10 @@ protected:
     int fd;
 };
 
+class connection_ended : public std::exception {
+    [[nodiscard]] const char * what() const noexcept override {
+        return "Connection Ended";
+    }
+};
 
 #endif //HOMEWORK2_PUBLIC_SOCKET_HPP
