@@ -210,5 +210,5 @@ void TCPClient::sendUnSubscribeMessage(std::string topic) {
 
     Socket::sendBuffer(server_socket->getFd(), buf, buf_len);
 
-    std::cout << "Unsubscribed to topic." << std::endl;
+    std::cout << "Unsubscribed from topic." << std::endl;
 }

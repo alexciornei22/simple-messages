@@ -371,13 +371,7 @@ void Client::sendFromQueue() {
 }
 
 void Topic::attach(Client *client, bool sf) {
-    auto found = std::find(sf_clients.begin(), sf_clients.end(), client);
-    if (found != sf_clients.end()) // check if client already in sf subs
-        return;
-
-    found = std::find(clients.begin(), clients.end(), client);
-    if (found != clients.end()) // check if client already in normal subs
-        return;
+    this->detach(client);
 
     if (sf) {
         sf_clients.push_back(client);
