@@ -71,6 +71,14 @@ def send_message(sock, message, parsed_args):
     print('Sent ({}/{} bytes) << {} >>'.format(sent, len(to_send), message['description']))
     time.sleep(parsed_args.delay / 1000)
 
+def send_str(sock, parsed_args):
+    to_send = base64.standard_b64decode(
+        base64.standard_b64encode(bytes("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx\3test", 'ascii'))
+    )
+
+    sent = sock.sendto(to_send, (str(parsed_args.server_ip), parsed_args.server_port))
+    print('Sent ({}/{} bytes) <<  >>'.format(sent, len(to_send)))
+    time.sleep(parsed_args.delay / 1000)
 
 def run_all_once(sock, parsed_args):
     for message in parsed_args.input_file:
@@ -95,6 +103,7 @@ def run_manual(sock, parsed_args):
             message = parsed_args.input_file[choice]
             send_message(sock, message, parsed_args)
         else:
+            send_str(sock, parsed_args);
             print('Maybe try a valid option.')
 
 

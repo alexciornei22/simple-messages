@@ -19,7 +19,7 @@ public:
     void setFd(int fd);
     void setId(const std::string &id);
 
-    const std::queue<udp_msg> &getMessageQueue() const;
+    std::queue<udp_msg> &getMessageQueue();
     int getFd() const;
     const std::string &getId() const;
     bool isConnected() const;
@@ -28,6 +28,7 @@ public:
     void disconnect();
     void connect(int fd, sockaddr_in addr);
     void update(udp_msg msg);
+    void sendFromQueue();
 
 private:
     sockaddr_in addr = sockaddr_in();

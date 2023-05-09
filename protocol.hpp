@@ -21,7 +21,7 @@
 #define DATA_STRING 3
 
 #define MAX_MSG_LEN 1600
-#define TOPIC_MAX_LEN 50
+#define TOPIC_MAX_LEN 51
 #define DATA_MAX_LEN 1501
 #define ID_MAX_LEN 11
 

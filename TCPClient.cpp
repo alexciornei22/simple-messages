@@ -55,7 +55,11 @@ void TCPClient::run(std::string id) {
                 }
 
                 if (pfd.fd == server_socket->getFd()) {
-                    recvData();
+                    try {
+                        recvData();
+                    } catch (connection_ended &e) {
+                        active = false;
+                    }
                     continue;
                 }
             }
@@ -103,7 +107,7 @@ void TCPClient::sendSubscribeMessage(std::string topic, bool sf) {
     data.sf = sf;
     memcpy(data.topic_name, topic.c_str(), TOPIC_MAX_LEN);
 
-    std::cout << +data.sf << " " << data.topic_name << std::endl;
+//    std::cout << +data.sf << " " << data.topic_name << std::endl;
 
     buf_len += sizeof(msg_hdr);
     buf_len += sizeof(uint8_t);
@@ -115,6 +119,8 @@ void TCPClient::sendSubscribeMessage(std::string topic, bool sf) {
     memcpy(buf + sizeof(msg_hdr), &data, sizeof(data));
 
     Socket::sendBuffer(server_socket->getFd(), buf, buf_len);
+
+    std::cout << "Subscribed to topic." << std::endl;
 }
 
 void TCPClient::recvData() {
@@ -125,9 +131,10 @@ void TCPClient::recvData() {
     if (rc == 0)
         throw connection_ended();
 
-    auto hdr = (msg_hdr *)buf;
     auto msg = (udp_msg *) (buf + sizeof(msg_hdr));
     auto data = msg->data;
+
+//    std::cout << msg->topic << " " << msg->type << " " << msg->data << "\n";
 
     in_addr addr = in_addr();
     addr.s_addr = ntohl(msg->client_addr);
