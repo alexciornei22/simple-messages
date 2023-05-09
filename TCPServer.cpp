@@ -3,7 +3,6 @@
 
 #include <cstring>
 #include <iostream>
-#include <sstream>
 #include <algorithm>
 #include <exception>
 #include <system_error>
@@ -49,9 +48,6 @@ void TCPServer::run() {
             throw std::system_error(errno, std::generic_category(), "poll()");
 
         handlePollFds();
-
-//        std::cout << topics.size() << " " << clients.size() << std::endl;
-//        std::cout << "--------------------\n";
     }
 }
 
@@ -172,10 +168,9 @@ void TCPServer::recvUDPTopicData(int fd) {
 
     udp_msg new_msg = makeUDPMessage(buf, client_addr, rc);
 
-//    std::cout << "recvudp " << new_msg.topic << " " << +new_msg.type << "\n";
 
     std::string topic_name = new_msg.topic;
-//    std::cout << topic_name << "\n";
+
     // find topic by name
     auto topic = std::find_if(topics.begin(), topics.end(), [&](const Topic &item) {
         return item.getName() == new_msg.topic;
@@ -192,7 +187,6 @@ udp_msg TCPServer::makeUDPMessage(char *buf, sockaddr_in client_addr, int rc) {
     msg.client_addr = htonl(client_addr.sin_addr.s_addr);
     msg.client_port = htons(client_addr.sin_port);
     msg.size = htons(sizeof(udp_msg) - sizeof(msg.data) - sizeof(msg.topic) - sizeof(msg.type) + rc);
-//    std::cout << "make: " << rc << " " << sizeof(msg.data) << " " << sizeof(udp_msg) << "\n";
 
     char *aux = buf;
     snprintf(msg.topic, TOPIC_MAX_LEN, "%s", aux);
@@ -248,8 +242,6 @@ void TCPServer::handleConnectionMessage(int fd, char *data) {
 
 void TCPServer::handleSubscribeMessage(int fd, const char *data) {
     auto *msg = (sub_msg *) data;
-//    std::cout << msg->topic_name << "\n";
-//    std::cout << +msg->sf << " " << msg->topic_name << "\n";
 
     // find client by FD
     auto client = std::find_if(clients.begin(), clients.end(), [&](const Client &item) {
@@ -274,8 +266,6 @@ void TCPServer::handleSubscribeMessage(int fd, const char *data) {
 
 void TCPServer::handleUnSubscribeMessage(int fd, const char *data) {
     auto *msg = (unsub_msg *) data;
-//    std::cout << msg->topic_name << "\n";
-//    std::cout << +msg->sf << " " << msg->topic_name << "\n";
 
     // find client by FD
     auto client = std::find_if(clients.begin(), clients.end(), [&](const Client &item) {
@@ -348,7 +338,6 @@ void Client::update(udp_msg msg) {
     char buf[MAX_MSG_LEN];
     size_t buf_len = 0;
 
-//    std::cout << "update " << msg.topic << " " << msg.type << " " << msg.data << "\n";
 
     buf_len += sizeof(msg_hdr);
     buf_len += ntohs(msg.size);
@@ -357,8 +346,6 @@ void Client::update(udp_msg msg) {
     hdr->type = TYPE_TOPDAT;
     hdr->msg_len = htons(buf_len);
 
-//    std::cout << "update: " << buf_len << " " << ntohs(msg.size) << std::endl;
-//    std::cout << msg.topic << " " << +msg.type << " " << msg.data << "\n";
     memcpy(buf + sizeof(msg_hdr), &msg, ntohs(msg.size));
 
     Socket::sendBuffer(this->getFd(), buf, buf_len);
@@ -381,7 +368,6 @@ void Topic::attach(Client *client, bool sf) {
     } else {
         clients.push_back(client);
     }
-//    std::cout << name << ":" << sf_clients.size() + clients.size() << std::endl;
 }
 
 void Topic::detach(Client *client) {

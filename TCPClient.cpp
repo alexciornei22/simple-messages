@@ -107,8 +107,6 @@ void TCPClient::sendSubscribeMessage(std::string topic, bool sf) {
     data.sf = sf;
     memcpy(data.topic_name, topic.c_str(), TOPIC_MAX_LEN);
 
-//    std::cout << +data.sf << " " << data.topic_name << std::endl;
-
     buf_len += sizeof(msg_hdr);
     buf_len += sizeof(uint8_t);
     buf_len += topic.size() + 1;
@@ -133,8 +131,6 @@ void TCPClient::recvData() {
 
     auto msg = (udp_msg *) (buf + sizeof(msg_hdr));
     auto data = msg->data;
-
-//    std::cout << msg->topic << " " << msg->type << " " << msg->data << "\n";
 
     in_addr addr = in_addr();
     addr.s_addr = ntohl(msg->client_addr);

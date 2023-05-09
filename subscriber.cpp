@@ -1,13 +1,6 @@
 #include <iostream>
-#include <cstring>
-#include <cstdint>
 #include <sstream>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <vector>
-#include <sys/poll.h>
-#include "Socket.hpp"
-#include "protocol.hpp"
 #include "TCPClient.hpp"
 
 using namespace std;
