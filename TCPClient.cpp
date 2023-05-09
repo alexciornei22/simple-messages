@@ -11,7 +11,6 @@
 
 TCPClient::TCPClient(std::string ip, uint16_t port) {
     server_socket = new Socket(AF_INET, SOCK_STREAM);
-    server_socket->enableSockOpt(SOL_SOCKET, SO_REUSEADDR);
     server_socket->enableSockOpt(SOL_TCP, TCP_NODELAY);
 
     server_addr.sin_family = AF_INET;

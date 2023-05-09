@@ -31,6 +31,8 @@ TCPServer::TCPServer(uint16_t port) {
 
     server_socket->bind((const struct sockaddr *)&serv_addr, sizeof(serv_addr));
     udp_socket->bind((const struct sockaddr *)&udp_addr, sizeof(udp_addr));
+
+    clients.reserve(100);
 }
 
 void TCPServer::run() {
@@ -328,7 +330,8 @@ const sockaddr_in &Client::getAddr() const {
 }
 
 void Client::disconnect() {
-    this->setConnected(false);
+    connected = false;
+    fd = -1;
 
     std::cout << "Client " << this->getId() << " disconnected." << std::endl;
 }
@@ -358,7 +361,7 @@ void Client::update(udp_msg msg) {
 //    std::cout << msg.topic << " " << +msg.type << " " << msg.data << "\n";
     memcpy(buf + sizeof(msg_hdr), &msg, ntohs(msg.size));
 
-    Socket::sendBuffer(fd, buf, buf_len);
+    Socket::sendBuffer(this->getFd(), buf, buf_len);
 }
 
 void Client::sendFromQueue() {
